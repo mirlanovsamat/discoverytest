@@ -2,10 +2,14 @@ import express from 'express'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
 import router from './httpapi/router.js'
+import { ensureDir } from 'fs-extra'
+import path from 'app-root-path'
 
 const app = express()
 dotenv.config()
 const port = process.env.PORT || 5000
+const uploadFolder = `${path}/uploads`;
+ensureDir(uploadFolder);
 
 app.use(express.json()) 
 app.use('/', router)
