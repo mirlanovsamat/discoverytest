@@ -1,24 +1,45 @@
 import { Router } from "express";
 import UploadService from "./service.js"; 
-import Adapter from "../adapter/adapter.js";
+import http from 'http'
+import fs from 'fs'
+
 
 const router = new Router()
 
-router.post('/files/:filename', async (req, res) => {
-    await UploadService.create(req.params['filename'], req.header('content-type'), req.header('content-length'))
-    await Adapter.writeFile(`uploads/${req.params['filename']}`, req)
-    res.json('File uploaded')
+const fileUpload = (req, res, next) => {
+    const {filename} = req.params
+    let buffer = new Buffer('')
+    req.on('data', (chunk) => {
+        buffer = Buffer.concat([buffer, chunk])
+    })
+    req.on('end', () => {
+        req.file = {
+            buffer,
+            filename,
+            mimetype: req.header('content-type'),
+            size: req.header('content-length')
+        }
+        next()
+    })
+}
+
+router.post('/files/:filename', fileUpload, async (req, res) => {
+    await UploadService.create(req.file)
+    res.json('File upload')
 })
 
 router.get('/files/:filename', async (req, res) => {
-    const file = await UploadService.getFile(req.params['filename'])
-    await Adapter.readFile(`uploads/${req.params['filename']}`, res, file)
+    const {file, readStream} = await UploadService.getFile(req.params.filename)
+    res.writeHead(200, {
+        "Content-Type" : file.mimetype,
+        "Content-Length": file.size
+    });
+    readStream.pipe(res)
 }) 
 
-router.put('/files/:filename', async (req, res) => {
-    await UploadService.updateFile(req.params['filename'], req.header('content-type'), req.header('content-length'))
-    await Adapter.writeFile(`uploads`, req)
-    res.json('File updated')
+router.put('/files/:filename', fileUpload, async (req, res) => {
+    await UploadService.updateFile(req.file)
+    res.json('File updated') 
 })
 
 export default router;

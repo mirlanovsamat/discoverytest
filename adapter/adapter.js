@@ -1,33 +1,27 @@
 import fs from 'fs'
-import getFolderSize from 'get-folder-size';
-
-const date = new Date()
-
+import logger from "../adapter/logger.js";
 
 class Adapter {
     constructor(){}
 
-    async writeFile(path, req){
-        const writeStream = fs.createWriteStream(`${path}/${req.params['filename']}`)
-        process.stdout.write(`Начало сохранение файла: ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}:${date.getMilliseconds()} \n`)
-        req.pipe(writeStream)
-        process.stdout.write(`Окончание сохранение файла: ${date.getHours()}:${date.getMinutes()}:${date.getSeconds()}:${date.getMilliseconds()} \n`)
-        const size = await getFolderSize.loose(path);
-        if(size/1000000 > 10){
-            process.stdout.write(`Общий размер файлов в папке превысил лимит в 10 мегабайт`)
-        }
+    async writeFile(filename, buffer){
+        return new Promise((resolve, reject) => {
+            logger.startSaving()
+            const writeStream = fs.createWriteStream(`${process.env.UPLOAD_FOLDER}/${filename}`)
+            writeStream.write(buffer)
+            writeStream.on("error", err => reject(err));
+            writeStream.on("end", () => console.log('end'));
+            logger.endSaving()
+            logger.checkFolderSize(process.env.UPLOAD_FOLDER)
+            resolve(filename)
+        }).then(data => {console.log(data)});
     }
 
-    readFile(path, res, file){
-        const readStream = fs.createReadStream(path)
-        res.writeHead(200, {
-            "Content-Type" : file.mimetype,
-            "Content-Length": file.size
-        });
-        readStream.on('data', (data) => {
-            process.stdout.write('got')
-        })
-        readStream.pipe(res)
+    readFile(filename){
+        const readStream = fs.createReadStream(`${process.env.UPLOAD_FOLDER}/${filename}`);
+        readStream.on("error", err => reject(err));
+        readStream.on("end", () => console.log('end'));
+        return readStream
     }
 }
 

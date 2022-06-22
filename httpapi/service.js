@@ -1,23 +1,25 @@
 import Upload from "../db/upload.js"
+import Adapter from "../adapter/adapter.js";
 
 class UploadService {
-    async create(name, mimetype, size) {
-        const body = { name, mimetype, size }
-        return await Upload.create(body) 
+    async create({buffer, filename, mimetype, size}) {
+        await Upload.create({ name: filename, mimetype, size })
+        return await Adapter.writeFile(filename, buffer) 
     }
 
-    async getFile(name) {
-        const file = await Upload.findOne({name: name})
-        return file
-    } 
+    async getFile(filename) {
+        const file = await Upload.findOne({name: filename})
+        const readStream =  await Adapter.readFile(filename)
+        return {file, readStream}
+    }   
     
-    async updateFile(name, mimetype, size) {
-        const body = { name, mimetype, size }
-        const file = await Upload.findOneAndUpdate({name: name}, body)
+    async updateFile({buffer, filename, mimetype, size}) {
+        const body = { name: filename, mimetype, size } 
+        const file = await Upload.findOneAndUpdate({name: filename}, body)
         if(!file) {
-            return await Upload.create(body) 
+            await Upload.create(body) 
         }
-        return file
+        await Adapter.writeFile(filename, buffer)
     }
 }
 
